@@ -1,0 +1,24 @@
+services:
+  churn-train:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: churn-train
+    volumes:
+      - .:/app
+    command: python scripts/train.py
+
+  churn-predict:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: churn-predict
+    volumes:
+      - .:/app
+    command: >
+      python scripts/predict.py
+      --input sample_input.json
+      --model models/lstm_churn_model.pth
+      --input_dim 61
+    depends_on:
+    - churn-train
