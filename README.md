@@ -15,7 +15,7 @@ This project predicts customer churn using an LSTM neural network built with PyT
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/churn-prediction.git
+git clone https://github.com/Mujah16/churn-prediction.git
 cd churn-prediction
 
 # Create Conda environment
