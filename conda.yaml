@@ -1,0 +1,14 @@
+name: churn-env
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - torch
+      - pandas
+      - numpy
+      - scikit-learn
+      - category_encoders
+      - mlflow
+      - optuna

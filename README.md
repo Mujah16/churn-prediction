@@ -1,53 +1,76 @@
-# Telecom Customer Churn Prediction (PyTorch)
+# 📉 Customer Churn Prediction using LSTM
 
-This project uses PyTorch to predict customer churn in the telecom industry based on service usage and account information. It includes support for static and sequential model training (LSTM).
+This project predicts customer churn using an LSTM neural network built with PyTorch. It includes:
 
-## 📁 Project Structure
+- ✅ Data preprocessing (encoding, scaling)
+- 🏋️‍♀️ Training and Optuna tuning
+- 📊 Evaluation with ROC and confusion matrix
+- 📦 Experiment tracking via MLflow
+- 🧠 Inference on new samples
+- 🚀 Azure ML deployment (optional)
 
-```
-churn-prediction/
-├── data/
-│   └── customer_sequences.csv
-├── models/
-│   └── lstm_churn_model.py
-├── scripts/
-│   ├── train.py
-│   ├── evaluate.py
-│   └── predict.py
-├── utils/
-│   └── data_loader.py
-├── requirements.txt
-└── README.md
-```
+---
 
-## 🚀 Getting Started
+## 📦 Installation
 
-### 1. Install Requirements
 ```bash
-pip install -r requirements.txt
-```
+# Clone repository
+git clone https://github.com/yourusername/churn-prediction.git
+cd churn-prediction
 
-### 2. Prepare Dataset
-Place your dataset file under the `data/` directory and name it `customer_sequences.csv`.
+# Create Conda environment
+conda env create -f python_env.yaml
+conda activate churn-prediction
 
-### 3. Train the Model
-```bash
-python scripts/train.py
-```
+# (Optional) Install Azure ML dependencies
+pip install azure-ai-ml azure-identity
 
-### 4. Evaluate the Model
-```bash
+🏋️‍♂️ Training
+
+# Method 1: Using MLflow entry point
+mlflow run . -P n_trials=10 --env-manager=local
+
+# Method 2: Direct Python script
+python scripts/train.py --n_trials 10
+
+📈 Evaluation
 python scripts/evaluate.py
-```
 
-### 5. Make Predictions
-```bash
+🔍 Inference
 python scripts/predict.py
-```
 
-## 📌 Notes
-- Adjust input dimensions in `train.py` and `predict.py` based on your feature set.
-- You can modify the LSTM architecture in `models/lstm_churn_model.py`.
+# Azure ML Deployment
+python deploy_to_azure.py
 
-## 🔒 License
-This project is for educational and internal research use.
+🧱 Project Structure
+
+churn-prediction/
+├── artifacts/                    # Exported model artifacts
+├── data/                         # Input CSV data
+├── mlruns/                       # MLflow runs
+├── models/                       # Saved model definitions
+├── scripts/                      # Core Python scripts
+│   ├── train.py                  # Training with Optuna & MLflow
+│   ├── evaluate.py               # Evaluation of registered model
+│   └── predict.py                # Inference on single input
+├── deploy_to_azure.py           # Script to deploy to Azure ML
+├── utils/                        # Optional utility code
+├── sample_input.json            # Example input for inference
+├── confusion_matrix.png         # Logged confusion matrix image
+├── roc_curve.png                # Logged ROC curve image
+├── conda.yaml                   # Conda environment definition
+├── requirements.txt             # Python dependencies
+├── python_env.yaml              # MLflow-compatible Conda env
+├── MLproject                    # MLflow project file
+├── README.md                    # You're reading it!
+
+⚙️ MLflow Usage
+
+# Launch MLflow UI
+mlflow ui
+
+# Serve model locally
+mlflow models serve -m "models:/ChurnLSTM/1" --no-conda
+
+# Register manually (if needed)
+mlflow models register -m runs:/<RUN_ID>/model -n ChurnLSTM

@@ -1,1 +1,42 @@
-/venv
+
+---
+
+## ✅ `.gitignore`
+
+```gitignore
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.ipynb_checkpoints/
+
+# VSCode
+.vscode/
+
+# Conda/venv
+.env/
+.venv/
+venv/
+env/
+*.env
+
+# MLflow
+mlruns/
+
+# Model Artifacts
+artifacts/
+models/
+
+# Plots
+*.png
+
+# Logs
+*.log
+
+# System
+.DS_Store
+Thumbs.db
+
+# Azure/Secrets (if any)
+*.json

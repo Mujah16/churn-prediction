@@ -1,55 +1,43 @@
+import torch
+import mlflow.pytorch
+import pandas as pd
+from category_encoders.hashing import HashingEncoder
+from sklearn.preprocessing import StandardScaler
+import numpy as np
 import sys, os
-import json
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import torch
-import pandas as pd
-import argparse
-import joblib
-from models.lstm_churn_model import LSTMChurnModel
+
+def preprocess_input(df):
+    cat_cols = df.select_dtypes(include="object").columns.tolist()
+    num_cols = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
+
+    num_pipeline = StandardScaler().fit(df[num_cols])
+    cat_encoder = HashingEncoder(n_components=16).fit(df[cat_cols])
+
+    X_num = num_pipeline.transform(df[num_cols])
+    X_cat = cat_encoder.transform(df[cat_cols])
+    return np.hstack([X_num, X_cat.values]), cat_encoder, num_pipeline
 
 
-def predict_single(input_dict, model_path, preprocessor_path, input_dim, hidden_dim):
-    # Load model
-    model = LSTMChurnModel(input_dim=input_dim, hidden_dim=hidden_dim)
-    model.load_state_dict(torch.load(model_path))
+def load_model():
+    return mlflow.pytorch.load_model("models:/ChurnLSTM/1") # or use "runs:/<RUN_ID>/model"
+
+
+def predict_single(example_df):
+    model = load_model()
+    X_proc, _, _ = preprocess_input(example_df)
+    X_tensor = torch.tensor(X_proc, dtype=torch.float32).unsqueeze(1)
     model.eval()
-
-    # Load preprocessor
-    preprocessor = joblib.load(preprocessor_path)
-
-    # Prepare input
-    df = pd.DataFrame([input_dict])
-    X_processed = preprocessor.transform(df)
-
-    # Convert to tensor
-    X_tensor = torch.tensor(X_processed, dtype=torch.float32)
-    if X_tensor.ndim == 2:
-        X_tensor = X_tensor.unsqueeze(1)  # shape: [1, 1, input_dim]
-    elif X_tensor.ndim == 1:
-        X_tensor = X_tensor.unsqueeze(0).unsqueeze(1)
-
     with torch.no_grad():
-        output = model(X_tensor)
-        prediction = output.item()
-        return {
-            "churn_probability": round(prediction, 4),
-            "will_churn": prediction > 0.5
-        }
+        logits = model(X_tensor)
+        probs = torch.sigmoid(logits)
+        preds = (probs > 0.5).float()
+    return preds.numpy(), probs.numpy()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True, help="Path to JSON input file")
-    parser.add_argument("--model", required=True, help="Path to saved model (.pth)")
-    parser.add_argument("--preprocessor", default="models/preprocessor.joblib", help="Path to saved preprocessor")
-    parser.add_argument("--input_dim", type=int, required=True, help="Input dimension used in model")
-    parser.add_argument("--hidden_dim", type=int, default=128, help="Hidden dimension for LSTM")
-
-    args = parser.parse_args()
-
-    with open(args.input, "r") as f:
-        input_dict = json.load(f)
-
-    result = predict_single(input_dict, args.model, args.preprocessor, args.input_dim, args.hidden_dim)
-    print(json.dumps(result, indent=2))
+    sample = pd.read_csv("data/customer_sequences.csv").drop(columns=["Churn Value"]).iloc[[0]]
+    pred, prob = predict_single(sample)
+    print(f"Prediction: {pred[0][0]}, Probability: {prob[0][0]:.4f}")

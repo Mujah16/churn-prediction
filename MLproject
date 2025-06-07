@@ -1,0 +1,10 @@
+name: churn-prediction-lstm
+
+conda_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      n_trials: {type: int, default: 10}
+    command: >
+      python scripts/train.py --n_trials {n_trials}
