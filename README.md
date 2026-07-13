@@ -1,76 +1,100 @@
-# 📉 Customer Churn Prediction using LSTM
+# Customer Churn Prediction
 
-This project predicts customer churn using an LSTM neural network built with PyTorch. It includes:
+PyTorch LSTM workflow for customer churn prediction with MLflow tracking, reproducible preprocessing, local inference, evaluation, and optional Azure ML deployment.
 
-- ✅ Data preprocessing (encoding, scaling)
-- 🏋️‍♀️ Training and Optuna tuning
-- 📊 Evaluation with ROC and confusion matrix
-- 📦 Experiment tracking via MLflow
-- 🧠 Inference on new samples
-- 🚀 Azure ML deployment (optional)
+## What Is Enterprise-Ready Here
 
----
+- Fixed feature contract in `utils/preprocessing.py` to prevent target leakage.
+- Train/test split occurs before fitting scalers and encoders.
+- Inference loads the fitted preprocessor instead of refitting on a single request.
+- Azure deployment configuration is supplied through CLI arguments or environment variables.
+- CI runs lint and tests on every push and pull request.
 
-## 📦 Installation
+## Installation
 
 ```bash
-# Clone repository
-git clone https://github.com/Mujah16/churn-prediction.git
-cd churn-prediction
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r requirements-dev.txt
+```
 
-# Create Conda environment
-conda env create -f python_env.yaml
-conda activate churn-prediction
+Install the platform-specific PyTorch build first. The command above uses CPU wheels, which is the right default for local checks and CI.
 
-# (Optional) Install Azure ML dependencies
-pip install azure-ai-ml azure-identity
+For Azure ML deployment support:
 
-🏋️‍♂️ Training
+```bash
+python -m pip install -r requirements-azure.txt
+```
 
-# Method 1: Using MLflow entry point
+## Training
+
+```bash
+python -m scripts.train --n_trials 10
+```
+
+Or run through MLflow:
+
+```bash
 mlflow run . -P n_trials=10 --env-manager=local
+```
 
-# Method 2: Direct Python script
-python scripts/train.py --n_trials 10
+Training writes the fitted preprocessing artifact to `artifacts/preprocessor.joblib` and registers the PyTorch model as `ChurnLSTM` by default.
+The default MLflow backend is `sqlite:///mlflow.db` because recent MLflow versions discourage filesystem tracking stores.
 
-📈 Evaluation
-python scripts/evaluate.py
+## Evaluation
 
-🔍 Inference
-python scripts/predict.py
+```bash
+python -m scripts.evaluate \
+  --model-uri models:/ChurnLSTM/1 \
+  --preprocessor-path artifacts/preprocessor.joblib
+```
 
-# Azure ML Deployment
-python deploy_to_azure.py
+## Inference
 
-🧱 Project Structure
+```bash
+python -m scripts.predict \
+  --input-path sample_input.json \
+  --model-uri models:/ChurnLSTM/1 \
+  --preprocessor-path artifacts/preprocessor.joblib
+```
 
+The input JSON can be a single object or a list of objects using the feature columns defined in `utils/preprocessing.py`.
+
+## Azure ML Deployment
+
+```bash
+export AZURE_SUBSCRIPTION_ID="<subscription-id>"
+export AZURE_RESOURCE_GROUP="<resource-group>"
+export AZURE_ML_WORKSPACE="<workspace-name>"
+
+python deploy_to_azure.py \
+  --model-name ChurnLSTM \
+  --model-version 1
+```
+
+## Quality Gates
+
+```bash
+ruff check .
+pytest
+```
+
+## Project Structure
+
+```text
 churn-prediction/
-├── artifacts/                    # Exported model artifacts
-├── data/                         # Input CSV data
-├── mlruns/                       # MLflow runs
-├── models/                       # Saved model definitions
-├── scripts/                      # Core Python scripts
-│   ├── train.py                  # Training with Optuna & MLflow
-│   ├── evaluate.py               # Evaluation of registered model
-│   └── predict.py                # Inference on single input
-├── deploy_to_azure.py           # Script to deploy to Azure ML
-├── utils/                        # Optional utility code
-├── sample_input.json            # Example input for inference
-├── confusion_matrix.png         # Logged confusion matrix image
-├── roc_curve.png                # Logged ROC curve image
-├── conda.yaml                   # Conda environment definition
-├── requirements.txt             # Python dependencies
-├── python_env.yaml              # MLflow-compatible Conda env
-├── MLproject                    # MLflow project file
-├── README.md                    # You're reading it!
-
-⚙️ MLflow Usage
-
-# Launch MLflow UI
-mlflow ui
-
-# Serve model locally
-mlflow models serve -m "models:/ChurnLSTM/1" --no-conda
-
-# Register manually (if needed)
-mlflow models register -m runs:/<RUN_ID>/model -n ChurnLSTM
+├── .github/workflows/ci.yml
+├── data/
+├── models/
+├── scripts/
+├── tests/
+├── utils/
+├── deploy_to_azure.py
+├── MLproject
+├── pyproject.toml
+├── requirements.txt
+├── requirements-azure.txt
+└── requirements-dev.txt
+```

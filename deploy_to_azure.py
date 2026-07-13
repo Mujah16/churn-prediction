@@ -1,52 +1,87 @@
-import mlflow.azureml
-from azure.ai.ml import MLClient
-from azure.identity import DefaultAzureCredential
-from azure.ai.ml.entities import ManagedOnlineEndpoint, ManagedOnlineDeployment
+from __future__ import annotations
+
+import argparse
+import os
 import uuid
 
-# Example config — replace these with your actual Azure values
-subscription_id = "11111111-2222-3333-4444-555555555555"
-resource_group = "my-resource-group"
-workspace_name = "my-ml-workspace"
-model_name = "ChurnLSTM"
-model_version = "1"
 
-# Azure ML client
-ml_client = MLClient(
-    DefaultAzureCredential(),
-    subscription_id=subscription_id,
-    resource_group_name=resource_group,
-    workspace_name=workspace_name,
-)
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Deploy a registered churn model to Azure ML.")
+    parser.add_argument("--subscription-id", default=os.getenv("AZURE_SUBSCRIPTION_ID"))
+    parser.add_argument("--resource-group", default=os.getenv("AZURE_RESOURCE_GROUP"))
+    parser.add_argument("--workspace-name", default=os.getenv("AZURE_ML_WORKSPACE"))
+    parser.add_argument("--model-name", default=os.getenv("AZURE_ML_MODEL_NAME", "ChurnLSTM"))
+    parser.add_argument("--model-version", default=os.getenv("AZURE_ML_MODEL_VERSION", "1"))
+    parser.add_argument("--endpoint-name", default=os.getenv("AZURE_ML_ENDPOINT_NAME"))
+    parser.add_argument(
+        "--instance-type",
+        default=os.getenv("AZURE_ML_INSTANCE_TYPE", "Standard_DS2_v2"),
+    )
+    parser.add_argument(
+        "--instance-count",
+        type=int,
+        default=int(os.getenv("AZURE_ML_INSTANCE_COUNT", "1")),
+    )
+    return parser.parse_args()
 
-# Unique endpoint name to avoid collisions
-endpoint_name = f"churn-endpoint-{uuid.uuid4().hex[:6]}"
 
-# Create endpoint
-endpoint = ManagedOnlineEndpoint(
-    name=endpoint_name,
-    description="Endpoint for churn prediction model",
-    auth_mode="key",
-)
+def require(value: str | None, name: str) -> str:
+    if not value:
+        raise SystemExit(f"Missing {name}. Provide it as a CLI argument or environment variable.")
+    return value
 
-print(f"🌀 Creating endpoint: {endpoint.name}...")
-ml_client.begin_create_or_update(endpoint).result()
 
-# Create deployment from MLflow model
-deployment = ManagedOnlineDeployment(
-    name="blue",  # deployment name within the endpoint
-    endpoint_name=endpoint.name,
-    model=f"azureml:{model_name}:{model_version}",
-    instance_type="Standard_DS2_v2",
-    instance_count=1,
-)
+def main() -> None:
+    args = parse_args()
 
-print(f"🚀 Deploying model {model_name}:{model_version} to endpoint...")
-ml_client.begin_create_or_update(deployment).result()
+    try:
+        from azure.ai.ml import MLClient
+        from azure.ai.ml.entities import ManagedOnlineDeployment, ManagedOnlineEndpoint
+        from azure.identity import DefaultAzureCredential
+    except ImportError as exc:
+        raise SystemExit(
+            "Azure dependencies are missing. Install them with "
+            "`pip install -r requirements-azure.txt`.",
+        ) from exc
 
-# Set as default
-ml_client.online_endpoints.begin_update(
-    ManagedOnlineEndpoint(name=endpoint.name, traffic={"blue": 100})
-).result()
+    subscription_id = require(args.subscription_id, "subscription id")
+    resource_group = require(args.resource_group, "resource group")
+    workspace_name = require(args.workspace_name, "workspace name")
+    endpoint_name = args.endpoint_name or f"churn-endpoint-{uuid.uuid4().hex[:6]}"
 
-print(f"✅ Deployment complete! Endpoint: {endpoint.name}")
+    ml_client = MLClient(
+        DefaultAzureCredential(),
+        subscription_id=subscription_id,
+        resource_group_name=resource_group,
+        workspace_name=workspace_name,
+    )
+
+    endpoint = ManagedOnlineEndpoint(
+        name=endpoint_name,
+        description="Endpoint for churn prediction model",
+        auth_mode="key",
+    )
+
+    print(f"Creating endpoint: {endpoint.name}")
+    ml_client.begin_create_or_update(endpoint).result()
+
+    deployment = ManagedOnlineDeployment(
+        name="blue",
+        endpoint_name=endpoint.name,
+        model=f"azureml:{args.model_name}:{args.model_version}",
+        instance_type=args.instance_type,
+        instance_count=args.instance_count,
+    )
+
+    print(f"Deploying model {args.model_name}:{args.model_version} to endpoint {endpoint.name}")
+    ml_client.begin_create_or_update(deployment).result()
+
+    ml_client.online_endpoints.begin_update(
+        ManagedOnlineEndpoint(name=endpoint.name, traffic={"blue": 100}),
+    ).result()
+
+    print(f"Deployment complete. Endpoint: {endpoint.name}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,42 +1,37 @@
-
----
-
-## ✅ `.gitignore`
-
-```gitignore
 # Python
 __pycache__/
 *.py[cod]
 *.pyo
 *.so
-*.ipynb_checkpoints/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
 
-# VSCode
+# Editors
 .vscode/
+.idea/
 
-# Conda/venv
-.env/
+# Environments
+.env
+.env.*
 .venv/
 venv/
 env/
-*.env
 
-# MLflow
+# MLflow and generated artifacts
 mlruns/
-
-# Model Artifacts
+mlflow.db*
 artifacts/
-models/
-
-# Plots
+*.pt
+*.pth
+*.onnx
+*.joblib
+*.pkl
 *.png
-
-# Logs
 *.log
 
-# System
+# OS
 .DS_Store
 Thumbs.db
-
-# Azure/Secrets (if any)
-*.json

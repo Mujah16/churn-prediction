@@ -12,3 +12,4 @@ dependencies:
       - category_encoders
       - mlflow
       - optuna
+      - joblib
